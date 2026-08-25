@@ -1,14 +1,3 @@
-# ---------------------------------------------------------------------------
-# CI/CD pipeline for Wisecow
-#
-#  CI  (build-and-push) : on every push to main, build the Docker image and
-#                         push it to GitHub Container Registry (ghcr.io).
-#  CD  (deploy)         : after a successful build, deploy the new image to the
-#                         Kubernetes cluster. This job runs on a SELF-HOSTED
-#                         runner because a local Minikube/Kind cluster is not
-#                         reachable from GitHub's cloud runners.
-#                         (See README -> "Continuous Deployment" for setup.)
-# ---------------------------------------------------------------------------
 name: wisecow-ci-cd
 
 on:
@@ -18,17 +7,14 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}   # e.g. vinayreddi7206/wisecow
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  # ----------------------------- CI ---------------------------------------
   build-and-push:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write        # needed to push to ghcr.io
-    outputs:
-      image: ${{ steps.meta.outputs.tags }}
+      packages: write
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -60,10 +46,8 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
-  # ----------------------------- CD ---------------------------------------
   deploy:
     needs: build-and-push
-    # This runner must be registered on the machine where your cluster runs.
     runs-on: [ self-hosted ]
     steps:
       - name: Checkout manifests
@@ -71,12 +55,8 @@ jobs:
 
       - name: Deploy to Kubernetes
         run: |
-          # Point kubectl at the cluster running on this self-hosted machine.
           kubectl apply -f k8s/deployment.yaml
           kubectl apply -f k8s/service.yaml
           kubectl apply -f k8s/ingress.yaml
-          # Roll the deployment to the freshly-built image and wait for it.
-          kubectl set image deployment/wisecow \
-            wisecow=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           kubectl rollout restart deployment/wisecow
           kubectl rollout status deployment/wisecow --timeout=120s
