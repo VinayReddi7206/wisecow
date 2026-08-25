@@ -1,0 +1,13 @@
+# TLS material - never commit private keys
+k8s/certs/
+*.key
+*.crt
+
+# Script output logs
+*.log
+response
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+.vscode/

@@ -1,0 +1,20 @@
+# ---------------------------------------------------------------------------
+# Service that exposes the Wisecow pods inside the cluster.
+# Maps service port 80 -> container port 4499.
+# The Ingress (ingress.yaml) sends HTTPS traffic to this service.
+# ---------------------------------------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: wisecow-service
+  labels:
+    app: wisecow
+spec:
+  type: ClusterIP
+  selector:
+    app: wisecow
+  ports:
+    - name: http
+      port: 80
+      targetPort: 4499
+      protocol: TCP

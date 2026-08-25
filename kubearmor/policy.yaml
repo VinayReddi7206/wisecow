@@ -1,0 +1,50 @@
+# ---------------------------------------------------------------------------
+# Zero-Trust KubeArmor policy for the Wisecow workload (Problem Statement 3)
+#
+# Philosophy: the Wisecow pod only needs to run bash + nc + fortune + cowsay
+# and serve traffic. Anything else (reading credential files, running a package
+# manager, spawning an interactive shell for recon) is treated as hostile and
+# BLOCKED. This demonstrates a least-privilege / zero-trust posture.
+#
+# Apply:   kubectl apply -f kubearmor/policy.yaml
+# Docs:    https://docs.kubearmor.io/kubearmor/
+# ---------------------------------------------------------------------------
+apiVersion: security.kubearmor.com/v1
+kind: KubeArmorPolicy
+metadata:
+  name: wisecow-zero-trust
+  namespace: default
+spec:
+  # Target only the Wisecow pods.
+  selector:
+    matchLabels:
+      app: wisecow
+
+  # ---- Block reading of sensitive credential / identity files -------------
+  file:
+    matchPaths:
+      - path: /etc/shadow          # password hashes
+        action: Block
+      - path: /etc/passwd          # user list (recon)
+        action: Block
+      # Block access to the mounted Kubernetes service-account token,
+      # a classic lateral-movement target.
+      - path: /run/secrets/kubernetes.io/serviceaccount/token
+        action: Block
+
+  # ---- Block execution of tooling the app never needs ---------------------
+  process:
+    matchPaths:
+      - path: /usr/bin/apt         # package manager
+        action: Block
+      - path: /usr/bin/apt-get
+        action: Block
+      - path: /bin/dpkg
+        action: Block
+      - path: /usr/bin/curl        # data exfiltration / pulling payloads
+        action: Block
+      - path: /usr/bin/wget
+        action: Block
+
+  # ---- Default action for anything explicitly matched above ---------------
+  action: Block
